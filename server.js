@@ -15,33 +15,29 @@ app.use(express.static(path.join(__dirname, 'public')));
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_SERVER_ID = process.env.DISCORD_SERVER_ID;
 
-// ルート設定
+// HTML ページのルート設定（.html拡張子なし）
+const htmlPages = [
+    'index',
+    'terms', 
+    'privacy',
+    'docs',
+    'status',
+    'servers',
+    'akane',
+    'koharu'
+];
+
+// ルートページ
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/index', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/terms', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'terms.html'));
-});
-
-app.get('/privacy', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
-});
-
-app.get('/docs', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'docs.html'));
-});
-
-app.get('/status', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'status.html'));
-});
-
-app.get('/servers', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'servers.html'));
+// 動的にHTMLページのルートを設定
+htmlPages.forEach(page => {
+    app.get(`/${page}`, (req, res) => {
+        const filePath = path.join(__dirname, 'public', `${page}.html`);
+        res.sendFile(filePath);
+    });
 });
 
 // Discord APIからサーバー統計を取得
