@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>茜-あかね- ドキュメント - ホームページ</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+            <link rel="icon" type="image/png" href="images/favicon.png"> <!-- PNG形式 -->
+
+</head>
+<body>
+    <header class="header">
+        <h1><i class="fas fa-robot"></i> 茜-あかね- ドキュメントサイトへようこそ</h1>
+    </header>
+    <div class="hamburger" onclick="toggleMenu()">
+        <div></div>
+        <div></div>
+        <div></div>
+    </div>    
+    <nav class="nav">
+        <a href="index"><i class="fas fa-home"></i> ホーム</a>
+        <a href="install"><i class="fas fa-download"></i> 導入方法</a>
+        <a href="commands"><i class="fas fa-list"></i> コマンド一覧</a>
+        <a href="features"><i class="fas fa-tools"></i> 機能紹介</a>
+        <a href="settings"><i class="fas fa-cog"></i> 設定ガイド</a>
+        <a href="faq"><i class="fas fa-question-circle"></i> FAQ</a>
+    </nav>
+
+    <main class="content">
+        <section>
+            <h2>茜 - あかね ドキュメントへようこそ</h2>
+            <p>多機能Botは、管理ツール、音楽再生機能、便利なツール、荒らし対策機能、レベルシステムなど、多くの機能を搭載したオールインワンDiscordボットです。</p>
+            <p>このBotを使用すると、サーバーの管理が格段に楽になります。例えば、特定のキーワードに対して自動的に反応するシステムや、音楽の再生、参加者のレベル管理機能などが揃っています。</p>
+            <p>このサイトでは、Botのインストール方法、各コマンドの使い方、設定方法、よくある質問など、Botの活用に必要なすべての情報を詳細に解説しています。</p>
+        </section>
+
+        <section>
+            <h3>サイトの使い方</h3>
+            <p>上のナビゲーションメニューから、以下のリンクを選んで、必要な情報にアクセスしてください。</p>
+            <ul>
+                <li><strong>導入方法</strong> - Botをサーバーにインストールする方法を詳しく説明しています。</li>
+                <li><strong>コマンド一覧</strong> - すべてのコマンドとその使用方法を一覧にして解説します。</li>
+                <li><strong>機能紹介</strong> - 多機能Botが提供するさまざまな機能の詳細情報を紹介します。</li>
+                <li><strong>設定ガイド</strong> - Botの設定やカスタマイズ方法を説明します。</li>
+                <li><strong>FAQ</strong> - よくある質問をまとめており、問題解決の手助けをします。</li>
+            </ul>
+        </section>
+
+        <section>
+            <h3>Botの最新情報</h3>
+            <p>Botは定期的にアップデートされ、新しい機能が追加されています。以下のリンクから最新の変更履歴をご覧ください。</p>
+            <a href="changelog.html" class="btn">変更履歴</a>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2024-2025 akaneteam&紅蓮nova | <i class="fas fa-envelope"></i> サポート: support@example.com</p>
+        <p>多機能Botに関する質問やサポートが必要な場合は、サポートチームまでご連絡ください。24時間以内に対応いたします。</p>
+        <p>このドキュメントは常に最新情報を提供することを目指しています。新しい機能や改善点があれば、随時アップデートいたします。</p>
+    </footer>
+    <script>
+        function toggleMenu() {
+            document.querySelector('.nav').classList.toggle('active');
+            document.querySelector('.hamburger').classList.toggle('active');
+        }
+    </script>
+</body>
+</html>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-7Q3C5WF65W"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-7Q3C5WF65W');
+</script>
