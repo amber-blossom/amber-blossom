@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心春-こはる- Docs - 導入方法</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+        <link rel="icon" type="image/png" href="images/favicon.png"> <!-- PNG形式 -->
+
+</head>
+<body>
+    <header class="header">
+        <h1><i class="fas fa-download"></i> 心春-こはる- Docs - 導入方法</h1>
+    </header>
+    <div class="hamburger" onclick="toggleMenu()">
+        <div></div>
+        <div></div>
+        <div></div>
+    </div>    
+    <nav class="nav">
+        <a href="docs"><i class="fas fa-home"></i> ホーム</a>
+        <a href="install"><i class="fas fa-download"></i> 導入方法</a>
+        <a href="commands"><i class="fas fa-list"></i> コマンド一覧</a>
+        <a href="features"><i class="fas fa-tools"></i> 機能紹介</a>
+        <a href="settings"><i class="fas fa-cog"></i> 設定ガイド</a>
+        <a href="faq"><i class="fas fa-question-circle"></i> FAQ</a>
+    </nav>
+
+    <main class="content">
+        <h2>Botの導入手順</h2>
+        <ol>
+            <li><a href="https://discord.com/oauth2/authorize?client_id=1272343342692171816" target="_blank">
+                ここをクリック</a> して、Botをサーバーに追加</li>
+            <li>Botに適切な権限を付与する</li>
+            <li>任意のチャンネルで `k!ping` を実行し、正常に動作するか確認</li>
+            <li>必要に応じて設定をカスタマイズ</li>
+        </ol>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2025 koharuteam&紅蓮nova | <i class="fas fa-envelope"></i> サポート: support@example.com</p>
+        <p>心春-こはる-に関する質問やサポートが必要な場合は、サポートチームまでご連絡ください。24時間以内に対応いたします。</p>
+        <p>このドキュメントは常に最新情報を提供することを目指しています。新しい機能や改善点があれば、随時アップデートいたします。</p>
+    </footer>
+    <script>
+        function toggleMenu() {
+            document.querySelector('.nav').classList.toggle('active');
+            document.querySelector('.hamburger').classList.toggle('active');
+        }
+    </script>
+</body>
+</html>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-7Q3C5WF65W"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-7Q3C5WF65W');
+</script>
