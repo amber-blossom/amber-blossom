@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>amber-blossom</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+    <link rel="icon" type="image/png" href="images/favicon.png">
+</head>
+<body>
+    <header>
+        <div class="logo">amber-blossom</div>
+        <nav>
+            <ul>
+                <li><a href="index">ホーム</a></li>
+                <li><a href="terms">利用規約</a></li>
+                <li><a href="privacy">プライバシーポリシー</a></li>
+                <li><a href="servers">連携サーバー一覧</a></li>
+                <div id="clock" class="clock">--:--:--</div>
+            </ul>
+        </nav>
+        <button id="lang-toggle">English</button>
+    </header>
+
+    <main>
+        <div class="hero">
+            <h1>amber-blossom</h1>
+            <p>茜-あかね- / 心春-こはる-をサポート、運営しています。</p>
+            
+            <!-- 公式リンク（最初に配置） -->
+            <div class="official-links" style="margin: 30px 0;">
+                <h2>公式リンク</h2>
+                <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                    <button class="install-btn" onclick="window.open('https://x.com/amberblossom_PJ', '_blank')">X(旧Twitter)</button>
+                    <button class="install-btn" onclick="window.open('https://discord.com/invite/Agf97X5Jv3', '_blank')">サポートサーバー</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Discord参加者数 -->
+        <div class="status-card">
+            <h3>Discordサーバー統計</h3>
+            <p>参加者数: <span id="member-count">読み込み中...</span></p>
+            <p>オンライン: <span id="online-count">読み込み中...</span></p>
+        </div>
+
+        <!-- 他のページへのリンク -->
+        <div class="server-grid">
+            <div class="server-card">
+                <h3>茜-あかね-</h3>
+                <p>多機能botです。ログインボーナスなどを備えています。</p>
+                  <button class="install-btn" onclick="window.open('https://discord.com/invite/Agf97X5Jv3', '_blank')">詳細を見る</button>
+            </div>
+            
+            <div class="server-card">
+                <h3>心春-こはる-</h3>
+                <p>多機能botです。茜-あかね-にはない機能を備えています。</p>
+                    <button class="install-btn" onclick="window.open('https://discord.com/invite/Agf97X5Jv3', '_blank')">詳細を見る</button>
+            </div>            
+            <div class="server-card">
+                <h3>Botステータス</h3>
+                <p>稼働状況確認</p>
+                <button onclick="window.location.href='status.html'">確認する</button>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2024-2025 amber-blossom team</p>
+    </footer>
+
+    <script>
+        // Discord参加者数を取得する関数（実際のAPIエンドポイントに合わせて変更してください）
+        async function updateMemberCount() {
+            try {
+                // 実際のDiscord APIまたは独自APIのエンドポイントに変更
+                const response = await fetch('/api/discord/stats');
+                const data = await response.json();
+                
+                document.getElementById('member-count').textContent = data.memberCount || '取得失敗';
+                document.getElementById('online-count').textContent = data.onlineCount || '取得失敗';
+            } catch (error) {
+                document.getElementById('member-count').textContent = '取得失敗';
+                document.getElementById('online-count').textContent = '取得失敗';
+            }
+        }
+
+        // ページ読み込み時に実行
+        document.addEventListener('DOMContentLoaded', function() {
+            updateMemberCount();
+            
+            // 時計機能
+            function updateClock() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('ja-JP');
+                const clockElement = document.getElementById('clock');
+                if (clockElement) {
+                    clockElement.textContent = timeString;
+                }
+            }
+            
+            setInterval(updateClock, 1000);
+            updateClock();
+        });
+    </script>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-7Q3C5WF65W"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-7Q3C5WF65W');
+    </script>
+</body>
+</html>
