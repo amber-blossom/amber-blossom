@@ -2,14 +2,97 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ミドルウェア
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// セキュリティミドルウェア
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://www.googletagmanager.com", "https://cdnjs.cloudflare.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "https:", "https://cdn.discordapp.com"],
+            connectSrc: ["'self'", "https://discord.com", "https://www.google-analytics.com"]
+        }
+    },
+    crossOriginEmbedderPolicy: false
+}));
+
+// Rate Limiting - API用
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15分
+    max: 100, // 最大100リクエスト
+    message: {
+        error: 'Too many requests',
+        message: 'リクエストが多すぎます。しばらく待ってから再試行してください。'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Rate Limiting - 一般ページ用
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15分
+    max: 1000, // 最大1000リクエスト
+    message: 'Too many requests from this IP',
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// 基本ミドルウェア
+app.use(generalLimiter);
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['https://your-domain.com'] 
+        : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// 静的ファイルミドルウェア（セキュリティ強化）
+app.use(express.static(path.join(__dirname, 'public'), {
+    dotfiles: 'deny',
+    index: false,
+    redirect: false,
+    setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+            res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+    }
+}));
+
+// ファイル存在チェック関数
+function fileExists(filePath) {
+    try {
+        return fs.existsSync(filePath);
+    } catch (error) {
+        return false;
+    }
+}
+
+// ログ記録関数
+function logAccess(req, type = 'access') {
+    const timestamp = new Date().toISOString();
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('User-Agent') || 'Unknown';
+    
+    console.log(`[${timestamp}] ${type.toUpperCase()} - IP: ${ip} - URL: ${req.originalUrl} - User-Agent: ${userAgent}`);
+}
+
+// セキュリティヘッダー追加
+app.use((req, res, next) => {
+    res.setHeader('X-Powered-By', 'amber-blossom');
+    res.setHeader('Server', 'amber-blossom/1.0');
+    logAccess(req);
+    next();
+});
 
 // Discord Bot設定（環境変数から読み込み）
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -25,26 +108,68 @@ const htmlPages = [
     'servers',
     'akane',
     'koharu'
+    'servers'
 ];
 
 // ルートページ
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    const filePath = path.join(__dirname, 'public', 'index.html');
+    if (fileExists(filePath)) {
+        res.sendFile(filePath);
+    } else {
+        logAccess(req, 'error');
+        res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+    }
 });
 
-// 動的にHTMLページのルートを設定
+// 動的にHTMLページのルートを設定（404対応強化）
 htmlPages.forEach(page => {
     app.get(`/${page}`, (req, res) => {
         const filePath = path.join(__dirname, 'public', `${page}.html`);
-        res.sendFile(filePath);
+        if (fileExists(filePath)) {
+            res.sendFile(filePath);
+        } else {
+            logAccess(req, 'error');
+            res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+        }
     });
 });
+
+// 不正なファイル拡張子アクセスを防ぐ
+app.get('*.php', (req, res) => {
+    logAccess(req, 'security');
+    res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
+
+app.get('*.asp', (req, res) => {
+    logAccess(req, 'security'); 
+    res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
+
+app.get('*.jsp', (req, res) => {
+    logAccess(req, 'security');
+    res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
+
+// 管理者パネルなどの不正アクセス防止
+const blockedPaths = ['/admin', '/wp-admin', '/administrator', '/phpmyadmin', '/cpanel', '/webmail'];
+blockedPaths.forEach(blockedPath => {
+    app.get(`${blockedPath}*`, (req, res) => {
+        logAccess(req, 'blocked');
+        res.status(403).sendFile(path.join(__dirname, 'public', '404.html'));
+    });
+});
+
+// API用レート制限適用
+app.use('/api', apiLimiter);
 
 // Discord APIからサーバー統計を取得
 app.get('/api/discord/stats', async (req, res) => {
     try {
+        logAccess(req, 'api');
+        
         if (!DISCORD_BOT_TOKEN || !DISCORD_SERVER_ID) {
-            return res.json({
+            return res.status(200).json({
                 memberCount: '設定なし',
                 onlineCount: '設定なし',
                 error: 'Discord設定が見つかりません'
@@ -56,7 +181,8 @@ app.get('/api/discord/stats', async (req, res) => {
             headers: {
                 'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
                 'Content-Type': 'application/json'
-            }
+            },
+            timeout: 10000 // 10秒タイムアウト
         });
 
         if (!guildResponse.ok) {
@@ -70,7 +196,8 @@ app.get('/api/discord/stats', async (req, res) => {
             headers: {
                 'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
                 'Content-Type': 'application/json'
-            }
+            },
+            timeout: 10000
         });
 
         let onlineCount = '取得失敗';
@@ -84,15 +211,18 @@ app.get('/api/discord/stats', async (req, res) => {
             memberCount: guildData.approximate_member_count || guildData.member_count || '取得失敗',
             onlineCount: onlineCount,
             serverName: guildData.name,
-            success: true
+            success: true,
+            timestamp: new Date().toISOString()
         });
 
     } catch (error) {
         console.error('Discord API Error:', error);
-        res.json({
+        logAccess(req, 'api-error');
+        res.status(500).json({
             memberCount: '取得失敗',
             onlineCount: '取得失敗',
-            error: error.message
+            error: 'サーバーエラーが発生しました',
+            timestamp: new Date().toISOString()
         });
     }
 });
@@ -100,10 +230,13 @@ app.get('/api/discord/stats', async (req, res) => {
 // Bot稼働状況を確認するAPI
 app.get('/api/bot/status', async (req, res) => {
     try {
+        logAccess(req, 'api');
+        
         if (!DISCORD_BOT_TOKEN) {
-            return res.json({
+            return res.status(200).json({
                 status: 'offline',
-                message: 'Bot設定が見つかりません'
+                message: 'Bot設定が見つかりません',
+                timestamp: new Date().toISOString()
             });
         }
 
@@ -111,7 +244,8 @@ app.get('/api/bot/status', async (req, res) => {
             headers: {
                 'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
                 'Content-Type': 'application/json'
-            }
+            },
+            timeout: 10000
         });
 
         if (response.ok) {
@@ -121,20 +255,24 @@ app.get('/api/bot/status', async (req, res) => {
                 username: botData.username,
                 discriminator: botData.discriminator,
                 id: botData.id,
-                message: 'Bot is running normally'
+                message: 'Bot is running normally',
+                timestamp: new Date().toISOString()
             });
         } else {
-            res.json({
+            res.status(200).json({
                 status: 'offline',
-                message: 'Bot認証に失敗しました'
+                message: 'Bot認証に失敗しました',
+                timestamp: new Date().toISOString()
             });
         }
 
     } catch (error) {
         console.error('Bot Status Error:', error);
-        res.json({
+        logAccess(req, 'api-error');
+        res.status(500).json({
             status: 'offline',
-            message: error.message
+            message: 'サーバーエラーが発生しました',
+            timestamp: new Date().toISOString()
         });
     }
 });
@@ -142,10 +280,13 @@ app.get('/api/bot/status', async (req, res) => {
 // サーバー一覧API（連携サーバー）
 app.get('/api/servers', async (req, res) => {
     try {
+        logAccess(req, 'api');
+        
         if (!DISCORD_BOT_TOKEN) {
-            return res.json({
+            return res.status(200).json({
                 servers: [],
-                message: 'Bot設定が見つかりません'
+                message: 'Bot設定が見つかりません',
+                timestamp: new Date().toISOString()
             });
         }
 
@@ -153,7 +294,8 @@ app.get('/api/servers', async (req, res) => {
             headers: {
                 'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
                 'Content-Type': 'application/json'
-            }
+            },
+            timeout: 10000
         });
 
         if (response.ok) {
@@ -168,45 +310,140 @@ app.get('/api/servers', async (req, res) => {
             res.json({
                 servers: serverList,
                 count: serverList.length,
-                success: true
+                success: true,
+                timestamp: new Date().toISOString()
             });
         } else {
-            res.json({
+            res.status(200).json({
                 servers: [],
-                message: 'サーバー情報の取得に失敗しました'
+                message: 'サーバー情報の取得に失敗しました',
+                timestamp: new Date().toISOString()
             });
         }
 
     } catch (error) {
         console.error('Servers API Error:', error);
-        res.json({
+        logAccess(req, 'api-error');
+        res.status(500).json({
             servers: [],
-            message: error.message
+            message: 'サーバーエラーが発生しました',
+            timestamp: new Date().toISOString()
         });
     }
 });
 
 // ヘルスチェックエンドポイント
 app.get('/health', (req, res) => {
+    logAccess(req, 'health');
     res.json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        environment: process.env.NODE_ENV || 'development'
     });
 });
 
-// 404エラーハンドリング
-app.use((req, res) => {
-    res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+// robots.txt
+app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send(`User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+Sitemap: ${req.protocol}://${req.get('host')}/sitemap.xml`);
 });
 
-// エラーハンドリング
+// sitemap.xml
+app.get('/sitemap.xml', (req, res) => {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const pages = ['', '/terms', '/privacy', '/docs', '/status', '/servers', '/akane', '/koharu'];
+    
+    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${pages.map(page => `  <url>
+    <loc>${baseUrl}${page}</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>${page === '' ? '1.0' : '0.8'}</priority>
+  </url>`).join('\n')}
+</urlset>`;
+    
+    res.type('application/xml');
+    res.send(sitemap);
+});
+
+// セキュリティ：疑わしいリクエストをブロック
+app.use((req, res, next) => {
+    const suspiciousPatterns = [
+        /\.\./,
+        /[<>\"'%;()&+]/,
+        /union.*select/i,
+        /script.*>/i,
+        /javascript:/i,
+        /vbscript:/i,
+        /onload.*=/i,
+        /onerror.*=/i
+    ];
+
+    const url = decodeURIComponent(req.url);
+    const isSuspicious = suspiciousPatterns.some(pattern => pattern.test(url));
+
+    if (isSuspicious) {
+        logAccess(req, 'suspicious');
+        return res.status(400).sendFile(path.join(__dirname, 'public', '404.html'));
+    }
+
+    next();
+});
+
+// 404エラーハンドリング（改良版）
+app.use((req, res) => {
+    logAccess(req, '404');
+    
+    // 404ページが存在するかチェック
+    const notFoundPath = path.join(__dirname, 'public', '404.html');
+    if (fileExists(notFoundPath)) {
+        res.status(404).sendFile(notFoundPath);
+    } else {
+        // 404.htmlが存在しない場合のフォールバック
+        res.status(404).json({
+            error: 'Page Not Found',
+            message: 'お探しのページは見つかりませんでした',
+            timestamp: new Date().toISOString(),
+            path: req.originalUrl
+        });
+    }
+});
+
+// エラーハンドリング（改良版）
 app.use((err, req, res, next) => {
     console.error('Server Error:', err);
-    res.status(500).json({
-        error: 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
-    });
+    logAccess(req, 'server-error');
+    
+    // セキュリティ：本番環境では詳細なエラー情報を隠す
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    res.status(err.status || 500);
+    
+    if (req.accepts('html')) {
+        // HTMLリクエストの場合は404ページを表示
+        const errorPath = path.join(__dirname, 'public', '404.html');
+        if (fileExists(errorPath)) {
+            res.sendFile(errorPath);
+        } else {
+            res.send('<h1>サーバーエラーが発生しました</h1>');
+        }
+    } else {
+        // APIリクエストの場合はJSON形式でエラーを返す
+        res.json({
+            error: 'Internal Server Error',
+            message: isDevelopment ? err.message : 'サーバーでエラーが発生しました',
+            timestamp: new Date().toISOString(),
+            ...(isDevelopment && { stack: err.stack })
+        });
+    }
 });
 
 // サーバー起動
