@@ -109,6 +109,7 @@ const htmlPages = [
     'akane',
     'koharu'
     'servers'
+    '404'
 ];
 
 // ルートページ
