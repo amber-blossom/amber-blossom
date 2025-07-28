@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者パネル</title>
+    <style>
+        /* === GLOBAL STYLES === */
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #ddd;
+            line-height: 1.7;
+            scroll-behavior: smooth;
+        }
+
+        /* === HEADER === */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(135deg, #111 0%, #1a1a1a 100%);
+            padding: 15px 30px;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            backdrop-filter: blur(10px);
+            box-sizing: border-box;
+            min-height: 70px;
+        }
+
+        .logo {
+            font-size: 28px;
+            color: #f39c12;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            letter-spacing: 1px;
+            flex-shrink: 0;
+        }
+
+        .admin-status {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        /* === MAIN === */
+        main {
+            padding-top: 100px;
+            padding-inline: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* === LOGIN FORM === */
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            background: linear-gradient(135deg, #2b2b2b 0%, #333 100%);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(243, 156, 18, 0.2);
+        }
+
+        .login-container h2 {
+            color: #f39c12;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ccc;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #555;
+            border-radius: 8px;
+            background: #1e1e1e;
+            color: #ddd;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #f39c12;
+            box-shadow: 0 0 10px rgba(243, 156, 18, 0.2);
+        }
+
+        .login-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            color: #111;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .login-btn:hover {
+            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(243, 156, 18, 0.3);
+        }
+
+        .error-message {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        /* === ADMIN PANEL === */
+        .admin-panel {
+            display: none;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .dashboard-card {
+            background: linear-gradient(135deg, #2d2d2d 0%, #333 100%);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .dashboard-card h3 {
+            color: #f39c12;
+            margin-bottom: 20px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .analytics-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #444;
+        }
+
+        .analytics-item:last-child {
+            border-bottom: none;
+        }
+
+        .analytics-value {
+            font-weight: bold;
+            color: #f39c12;
+            font-size: 18px;
+        }
+
+        /* === CHANGELOG SECTION === */
+        .changelog-section {
+            background: linear-gradient(135deg, #292929 0%, #2d2d2d 100%);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid #444;
+            margin-bottom: 30px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .changelog-form {
+            margin-bottom: 30px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            align-items: end;
+        }
+
+        .form-row select, .form-row input, .form-row textarea {
+            background: #1e1e1e;
+            color: #ddd;
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 12px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-row select:focus, .form-row input:focus, .form-row textarea:focus {
+            outline: none;
+            border-color: #f39c12;
+            box-shadow: 0 0 10px rgba(243, 156, 18, 0.2);
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .form-row textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .publish-btn, .logout-btn {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .publish-btn:hover {
+            background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            margin-left: auto;
+        }
+
+        .logout-btn:hover {
+            background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.3);
+        }
+
+        /* === CHANGELOG ENTRIES === */
+        .changelog-entries {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            border-radius: 8px;
+            background: #1e1e1e;
+        }
+
+        .changelog-entry {
+            padding: 20px;
+            border-bottom: 1px solid #333;
+            transition: background-color 0.3s ease;
+        }
+
+        .changelog-entry:hover {
+            background: rgba(243, 156, 18, 0.05);
+        }
+
+        .changelog-entry:last-child {
+            border-bottom: none;
+        }
+
+        .entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .entry-title {
+            color: #f39c12;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .entry-meta {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .entry-content {
+            color: #ccc;
+            line-height: 1.6;
+        }
+
+        .entry-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .entry-badge.akane {
+            background: linear-gradient(135deg, #e91e63 0%, #c2185b 100%);
+            color: white;
+        }
+
+        .entry-badge.koharu {
+            background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+            color: white;
+        }
+
+        /* === SUCCESS MESSAGE === */
+        .success-message {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+
+        /* === RESPONSIVE DESIGN === */
+        @media (max-width: 768px) {
+            main {
+                padding-inline: 20px;
+            }
+            
+            .form-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">Admin Panel</div>
+        <div class="admin-status" id="adminStatus" style="display: none;">管理者モード</div>
+    </header>
+
+    <main>
+        <!-- ログインフォーム -->
+        <div class="login-container" id="loginContainer">
+            <h2>管理者ログイン</h2>
+            <div class="error-message" id="errorMessage" style="display: none;"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">ユーザー名:</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">パスワード:</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="login-btn">ログイン</button>
+            </form>
+        </div>
+
+        <!-- 管理者パネル -->
+        <div class="admin-panel" id="adminPanel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+                <h1>管理者ダッシュボード</h1>
+                <button class="logout-btn" id="logoutBtn">ログアウト</button>
+            </div>
+
+            <!-- アナリティクス -->
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3>📊 サイトアナリティクス</h3>
+                    <div class="analytics-item">
+                        <span>今日の訪問者数</span>
+                        <span class="analytics-value" id="todayVisitors">0</span>
+                    </div>
+                    <div class="analytics-item">
+                        <span>今月の訪問者数</span>
+                        <span class="analytics-value" id="monthlyVisitors">0</span>
+                    </div>
+                    <div class="analytics-item">
+                        <span>総訪問者数</span>
+                        <span class="analytics-value" id="totalVisitors">0</span>
+                    </div>
+                    <div class="analytics-item">
+                        <span>ページビュー</span>
+                        <span class="analytics-value" id="pageViews">0</span>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>📈 変更ログ統計</h3>
+                    <div class="analytics-item">
+                        <span>Akane 更新数</span>
+                        <span class="analytics-value" id="akaneUpdates">0</span>
+                    </div>
+                    <div class="analytics-item">
+                        <span>Koharu 更新数</span>
+                        <span class="analytics-value" id="koharuUpdates">0</span>
+                    </div>
+                    <div class="analytics-item">
+                        <span>今月の更新数</span>
+                        <span class="analytics-value" id="monthlyUpdates">0</span>
+                    </div>
+                    <div class="analytics-item">
+                        <span>最終更新</span>
+                        <span class="analytics-value" id="lastUpdate">-</span>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>🔧 システム情報</h3>
+                    <div class="analytics-item">
+                        <span>サーバー状態</span>
+                        <span class="analytics-value" style="color: #27ae60;">オンライン</span>
+                    </div>
+                    <div class="analytics-item">
+                        <span>最終バックアップ</span>
+                        <span class="analytics-value" id="lastBackup">-</span>
+                    </div>
+                    <div class="analytics-item">
+                        <span>アクティブセッション</span>
+                        <span class="analytics-value" id="activeSessions">1</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 変更ログ投稿 -->
+            <div class="changelog-section">
+                <h2>変更ログ投稿</h2>
+                <div class="success-message" id="successMessage"></div>
+                
+                <form class="changelog-form" id="changelogForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="projectSelect">プロジェクト:</label>
+                            <select id="projectSelect" required>
+                                <option value="">選択してください</option>
+                                <option value="akane">Akane</option>
+                                <option value="koharu">Koharu</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="versionInput">バージョン:</label>
+                            <input type="text" id="versionInput" placeholder="例: v1.2.3" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="titleInput">タイトル:</label>
+                            <input type="text" id="titleInput" placeholder="更新内容のタイトル" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="contentTextarea">更新内容:</label>
+                        <textarea id="contentTextarea" placeholder="更新内容の詳細を入力してください..." required></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="webhookUrl">Discord Webhook URL:</label>
+                            <input type="url" id="webhookUrl" placeholder="https://discord.com/api/webhooks/...">
+                        </div>
+                        <button type="submit" class="publish-btn">更新を投稿</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 変更ログ一覧 -->
+            <div class="changelog-section">
+                <h2>変更ログ一覧</h2>
+                <div class="changelog-entries" id="changelogEntries">
+                    <!-- 変更ログエントリがここに動的に追加されます -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 認証システム
+        const AUTH_CREDENTIALS = {
+            username: 'admin',
+            password: 'secure123'
+        };
+
+        // データストレージ（実際の実装では外部データベースを使用）
+        let analytics = {
+            todayVisitors: 0,
+            monthlyVisitors: 0,
+            totalVisitors: 0,
+            pageViews: 0,
+            akaneUpdates: 0,
+            koharuUpdates: 0,
+            monthlyUpdates: 0,
+            lastUpdate: null,
+            lastBackup: null,
+            activeSessions: 1
+        };
+
+        let changelogs = [];
+
+        // DOM要素
+        const loginContainer = document.getElementById('loginContainer');
+        const adminPanel = document.getElementById('adminPanel');
+        const adminStatus = document.getElementById('adminStatus');
+        const loginForm = document.getElementById('loginForm');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const changelogForm = document.getElementById('changelogForm');
+        const changelogEntries = document.getElementById('changelogEntries');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        // 初期化
+        window.addEventListener('load', () => {
+            loadAnalytics();
+            loadChangelogs();
+            updateAnalyticsDisplay();
+            
+            // 訪問者数をカウント
+            analytics.todayVisitors++;
+            analytics.monthlyVisitors++;
+            analytics.totalVisitors++;
+            analytics.pageViews++;
+            updateAnalyticsDisplay();
+        });
+
+        // ログイン処理
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (username === AUTH_CREDENTIALS.username && password === AUTH_CREDENTIALS.password) {
+                loginContainer.style.display = 'none';
+                adminPanel.style.display = 'block';
+                adminStatus.style.display = 'block';
+                errorMessage.style.display = 'none';
+            } else {
+                errorMessage.textContent = 'ユーザー名またはパスワードが正しくありません。';
+                errorMessage.style.display = 'block';
+            }
+        });
+
+        // ログアウト処理
+        logoutBtn.addEventListener('click', () => {
+            loginContainer.style.display = 'block';
+            adminPanel.style.display = 'none';
+            adminStatus.style.display = 'none';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            errorMessage.style.display = 'none';
+        });
+
+        // 変更ログ投稿処理
+        changelogForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const project = document.getElementById('projectSelect').value;
+            const version = document.getElementById('versionInput').value;
+            const title = document.getElementById('titleInput').value;
+            const content = document.getElementById('contentTextarea').value;
+            const webhookUrl = document.getElementById('webhookUrl').value;
+            
+            const changelog = {
+                id: Date.now(),
+                project: project,
+                version: version,
+                title: title,
+                content: content,
+                timestamp: new Date().toISOString(),
+                date: new Date().toLocaleDateString('ja-JP')
+            };
+            
+            // 変更ログを保存
+            changelogs.unshift(changelog); // 新しいものを先頭に追加
+            saveChangelogs();
+            
+            // アナリティクス更新
+            if (project === 'akane') {
+                analytics.akaneUpdates++;
+            } else if (project === 'koharu') {
+                analytics.koharuUpdates++;
+            }
+            analytics.monthlyUpdates++;
+            analytics.lastUpdate = new Date().toLocaleDateString('ja-JP');
+            updateAnalyticsDisplay();
+            
+            // 変更ログ表示を更新
+            renderChangelogs();
+            
+            // Discord Webhook送信
+            if (webhookUrl) {
+                await sendDiscordWebhook(webhookUrl, changelog);
+            }
+            
+            // 成功メッセージ表示
+            successMessage.textContent = `${project.toUpperCase()}の変更ログが正常に投稿されました！`;
+            successMessage.style.display = 'block';
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 3000);
+            
+            // フォームリセット
+            changelogForm.reset();
+        });
+
+        // Discord Webhook送信
+        async function sendDiscordWebhook(webhookUrl, changelog) {
+            try {
+                const embed = {
+                    title: `${changelog.project.toUpperCase()} ${changelog.version} - ${changelog.title}`,
+                    description: changelog.content,
+                    color: changelog.project === 'akane' ? 0xe91e63 : 0x9c27b0,
+                    timestamp: changelog.timestamp,
+                    footer: {
+                        text: `${changelog.project.toUpperCase()} Changelog`
+                    },
+                    fields: [
+                        {
+                            name: "バージョン",
+                            value: changelog.version,
+                            inline: true
+                        },
+                        {
+                            name: "更新日",
+                            value: changelog.date,
+                            inline: true
+                        }
+                    ]
+                };
+
+                const payload = {
+                    content: `🚀 **${changelog.project.toUpperCase()}** の新しい更新があります！`,
+                    embeds: [embed]
+                };
+
+                await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+            } catch (error) {
+                console.error('Discord Webhook送信エラー:', error);
+            }
+        }
+
+        // 変更ログ表示更新
+        function renderChangelogs() {
+            changelogEntries.innerHTML = '';
+            
+            changelogs.forEach(changelog => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'changelog-entry';
+                
+                entryDiv.innerHTML = `
+                    <div class="entry-header">
+                        <div>
+                            <span class="entry-badge ${changelog.project}">${changelog.project.toUpperCase()}</span>
+                            <span class="entry-title">${changelog.version} - ${changelog.title}</span>
+                        </div>
+                        <div class="entry-meta">${changelog.date}</div>
+                    </div>
+                    <div class="entry-content">${changelog.content}</div>
+                `;
+                
+                changelogEntries.appendChild(entryDiv);
+            });
+        }
+
+        // アナリティクス表示更新
+        function updateAnalyticsDisplay() {
+            document.getElementById('todayVisitors').textContent = analytics.todayVisitors;
+            document.getElementById('monthlyVisitors').textContent = analytics.monthlyVisitors;
+            document.getElementById('totalVisitors').textContent = analytics.totalVisitors;
+            document.getElementById('pageViews').textContent = analytics.pageViews;
+            document.getElementById('akaneUpdates').textContent = analytics.akaneUpdates;
+            document.getElementById('koharuUpdates').textContent = analytics.koharuUpdates;
+            document.getElementById('monthlyUpdates').textContent = analytics.monthlyUpdates;
+            document.getElementById('lastUpdate').textContent = analytics.lastUpdate || '-';
+            document.getElementById('lastBackup').textContent = analytics.lastBackup || '未実行';
+            document.getElementById('activeSessions').textContent = analytics.activeSessions;
+        }
+
+        // データ保存（実際の実装では外部データベースを使用）
+        function saveChangelogs() {
+            // 実際の実装では、サーバーサイドAPIを呼び出してデータベースに保存
+            console.log('変更ログを保存:', changelogs);
+        }
+
+        function loadChangelogs() {
+            // 実際の実装では、サーバーサイドAPIから変更ログを読み込み
+            renderChangelogs();
+        }
+
+        function loadAnalytics() {
+            // 実際の実装では、サーバーサイドAPIからアナリティクスデータを読み込み
+            analytics.lastBackup = new Date(Date.now() - 86400000).toLocaleDateString('ja-JP');
+        }
+
+        // 定期的なアナリティクス更新（実際の実装では必要に応じて）
+        setInterval(() => {
+            analytics.pageViews++;
+            updateAnalyticsDisplay();
+        }, 30000); // 30秒ごと
+    </script>
+</body>
+</html>
