@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理者パネル</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://discord.com;">
     <style>
         /* === GLOBAL STYLES === */
         body {
@@ -49,6 +50,12 @@
             border-radius: 8px;
             font-weight: 600;
             font-size: 14px;
+        }
+
+        .session-info {
+            font-size: 12px;
+            color: #aaa;
+            margin-left: 10px;
         }
 
         /* === MAIN === */
@@ -127,6 +134,13 @@
             box-shadow: 0 6px 20px rgba(243, 156, 18, 0.3);
         }
 
+        .login-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
         .error-message {
             background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
             color: white;
@@ -135,6 +149,16 @@
             margin-bottom: 20px;
             text-align: center;
             font-weight: 500;
+        }
+
+        .login-attempts {
+            background: #d35400;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 14px;
         }
 
         /* === ADMIN PANEL === */
@@ -362,24 +386,28 @@
 <body>
     <header>
         <div class="logo">Admin Panel</div>
-        <div class="admin-status" id="adminStatus" style="display: none;">管理者モード</div>
+        <div id="headerInfo" style="display: none;">
+            <div class="admin-status">管理者モード</div>
+            <div class="session-info" id="sessionInfo"></div>
+        </div>
     </header>
 
     <main>
         <!-- ログインフォーム -->
         <div class="login-container" id="loginContainer">
             <h2>管理者ログイン</h2>
+            <div class="login-attempts" id="loginAttempts" style="display: none;"></div>
             <div class="error-message" id="errorMessage" style="display: none;"></div>
             <form id="loginForm">
                 <div class="form-group">
                     <label for="username">ユーザー名:</label>
-                    <input type="text" id="username" required>
+                    <input type="text" id="username" required autocomplete="username" maxlength="50">
                 </div>
                 <div class="form-group">
                     <label for="password">パスワード:</label>
-                    <input type="password" id="password" required>
+                    <input type="password" id="password" required autocomplete="current-password" maxlength="100">
                 </div>
-                <button type="submit" class="login-btn">ログイン</button>
+                <button type="submit" class="login-btn" id="loginBtn">ログイン</button>
             </form>
         </div>
 
@@ -466,23 +494,23 @@
                         </div>
                         <div class="form-group">
                             <label for="versionInput">バージョン:</label>
-                            <input type="text" id="versionInput" placeholder="例: v1.2.3" required>
+                            <input type="text" id="versionInput" placeholder="例: v1.2.3" required maxlength="20" pattern="^v?[0-9]+\.[0-9]+\.[0-9]+.*$">
                         </div>
                         <div class="form-group">
                             <label for="titleInput">タイトル:</label>
-                            <input type="text" id="titleInput" placeholder="更新内容のタイトル" required>
+                            <input type="text" id="titleInput" placeholder="更新内容のタイトル" required maxlength="100">
                         </div>
                     </div>
                     
                     <div class="form-group">
                         <label for="contentTextarea">更新内容:</label>
-                        <textarea id="contentTextarea" placeholder="更新内容の詳細を入力してください..." required></textarea>
+                        <textarea id="contentTextarea" placeholder="更新内容の詳細を入力してください..." required maxlength="2000"></textarea>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
                             <label for="webhookUrl">Discord Webhook URL:</label>
-                            <input type="url" id="webhookUrl" placeholder="https://discord.com/api/webhooks/...">
+                            <input type="url" id="webhookUrl" placeholder="https://discord.com/api/webhooks/..." maxlength="200">
                         </div>
                         <button type="submit" class="publish-btn">更新を投稿</button>
                     </div>
@@ -500,13 +528,33 @@
     </main>
 
     <script>
-        // 認証システム
-        const AUTH_CREDENTIALS = {
-            username: 'admin',
-            password: 'secure123'
+        // セキュリティ設定
+        const SECURITY_CONFIG = {
+            MAX_LOGIN_ATTEMPTS: 5,
+            LOCKOUT_DURATION: 15 * 60 * 1000, // 15分
+            SESSION_TIMEOUT: 30 * 60 * 1000, // 30分
+            RATE_LIMIT_REQUESTS: 10,
+            RATE_LIMIT_WINDOW: 60 * 1000 // 1分
         };
 
-        // データストレージ（実際の実装では外部データベースを使用）
+        // セキュリティ状態管理
+        let securityState = {
+            loginAttempts: 0,
+            lockoutUntil: null,
+            sessionStartTime: null,
+            lastActivity: null,
+            requestCount: 0,
+            rateLimitWindow: Date.now()
+        };
+
+        // 認証システム（実際の実装では暗号化されたハッシュを使用）
+        const AUTH_CREDENTIALS = {
+            username: 'admin',
+            // 実際の実装では bcrypt などでハッシュ化したパスワードを使用
+            passwordHash: 'secure123' // この例では平文（実際は危険）
+        };
+
+        // データストレージ
         let analytics = {
             todayVisitors: 0,
             monthlyVisitors: 0,
@@ -525,13 +573,78 @@
         // DOM要素
         const loginContainer = document.getElementById('loginContainer');
         const adminPanel = document.getElementById('adminPanel');
-        const adminStatus = document.getElementById('adminStatus');
+        const headerInfo = document.getElementById('headerInfo');
+        const sessionInfo = document.getElementById('sessionInfo');
         const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
         const errorMessage = document.getElementById('errorMessage');
+        const loginAttempts = document.getElementById('loginAttempts');
         const successMessage = document.getElementById('successMessage');
         const changelogForm = document.getElementById('changelogForm');
         const changelogEntries = document.getElementById('changelogEntries');
         const logoutBtn = document.getElementById('logoutBtn');
+
+        // セキュリティ関数
+        function sanitizeInput(input) {
+            return input.replace(/[<>\"'&]/g, function(match) {
+                const map = {
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                    '&': '&amp;'
+                };
+                return map[match];
+            });
+        }
+
+        function validateInput(input, maxLength = 100) {
+            if (!input || typeof input !== 'string') return false;
+            if (input.length > maxLength) return false;
+            // 基本的なXSS攻撃パターンをチェック
+            const dangerousPatterns = [
+                /<script/i,
+                /javascript:/i,
+                /on\w+\s*=/i,
+                /<iframe/i,
+                /<object/i,
+                /<embed/i
+            ];
+            return !dangerousPatterns.some(pattern => pattern.test(input));
+        }
+
+        function isRateLimited() {
+            const now = Date.now();
+            if (now - securityState.rateLimitWindow > SECURITY_CONFIG.RATE_LIMIT_WINDOW) {
+                securityState.requestCount = 0;
+                securityState.rateLimitWindow = now;
+            }
+            
+            securityState.requestCount++;
+            return securityState.requestCount > SECURITY_CONFIG.RATE_LIMIT_REQUESTS;
+        }
+
+        function checkSessionTimeout() {
+            if (!securityState.sessionStartTime) return false;
+            
+            const now = Date.now();
+            const sessionAge = now - securityState.sessionStartTime;
+            const inactivityTime = now - securityState.lastActivity;
+            
+            return sessionAge > SECURITY_CONFIG.SESSION_TIMEOUT || 
+                   inactivityTime > SECURITY_CONFIG.SESSION_TIMEOUT;
+        }
+
+        function updateActivity() {
+            securityState.lastActivity = Date.now();
+        }
+
+        function updateSessionInfo() {
+            if (securityState.sessionStartTime) {
+                const elapsed = Math.floor((Date.now() - securityState.sessionStartTime) / 1000 / 60);
+                sessionInfo.textContent = `セッション時間: ${elapsed}分`;
+            }
+        }
 
         // 初期化
         window.addEventListener('load', () => {
@@ -545,54 +658,175 @@
             analytics.totalVisitors++;
             analytics.pageViews++;
             updateAnalyticsDisplay();
+
+            // アクティビティ監視
+            document.addEventListener('click', updateActivity);
+            document.addEventListener('keypress', updateActivity);
+            
+            // セッション監視
+            setInterval(() => {
+                if (securityState.sessionStartTime && checkSessionTimeout()) {
+                    showError('セッションがタイムアウトしました。再度ログインしてください。');
+                    logout();
+                }
+                updateSessionInfo();
+            }, 60000); // 1分ごと
         });
+
+        function showError(message) {
+            errorMessage.textContent = sanitizeInput(message);
+            errorMessage.style.display = 'block';
+        }
+
+        function hideError() {
+            errorMessage.style.display = 'none';
+        }
+
+        function updateLoginAttempts() {
+            if (securityState.loginAttempts > 0) {
+                const remaining = SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS - securityState.loginAttempts;
+                loginAttempts.textContent = `ログイン試行回数: ${securityState.loginAttempts}/${SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS} (残り${remaining}回)`;
+                loginAttempts.style.display = 'block';
+            } else {
+                loginAttempts.style.display = 'none';
+            }
+        }
 
         // ログイン処理
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
+            if (isRateLimited()) {
+                showError('リクエスト制限に達しました。しばらく待ってから再試行してください。');
+                return;
+            }
+
+            // ロックアウト状態をチェック
+            const now = Date.now();
+            if (securityState.lockoutUntil && now < securityState.lockoutUntil) {
+                const remainingMinutes = Math.ceil((securityState.lockoutUntil - now) / 60000);
+                showError(`アカウントがロックされています。あと${remainingMinutes}分待ってください。`);
+                return;
+            }
+
+            // ロックアウト期間終了時にリセット
+            if (securityState.lockoutUntil && now >= securityState.lockoutUntil) {
+                securityState.loginAttempts = 0;
+                securityState.lockoutUntil = null;
+                updateLoginAttempts();
+            }
+            
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             
-            if (username === AUTH_CREDENTIALS.username && password === AUTH_CREDENTIALS.password) {
+            // 入力検証
+            if (!validateInput(username, 50) || !validateInput(password, 100)) {
+                showError('無効な入力が検出されました。');
+                return;
+            }
+            
+            if (username === AUTH_CREDENTIALS.username && password === AUTH_CREDENTIALS.passwordHash) {
+                // ログイン成功
+                securityState.loginAttempts = 0;
+                securityState.sessionStartTime = Date.now();
+                securityState.lastActivity = Date.now();
+                
                 loginContainer.style.display = 'none';
                 adminPanel.style.display = 'block';
-                adminStatus.style.display = 'block';
-                errorMessage.style.display = 'none';
+                headerInfo.style.display = 'flex';
+                hideError();
+                loginAttempts.style.display = 'none';
+                
+                // パスワードフィールドをクリア
+                document.getElementById('password').value = '';
+                
+                updateSessionInfo();
             } else {
-                errorMessage.textContent = 'ユーザー名またはパスワードが正しくありません。';
-                errorMessage.style.display = 'block';
+                // ログイン失敗
+                securityState.loginAttempts++;
+                updateLoginAttempts();
+                
+                if (securityState.loginAttempts >= SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS) {
+                    securityState.lockoutUntil = Date.now() + SECURITY_CONFIG.LOCKOUT_DURATION;
+                    showError(`ログイン試行回数が上限に達しました。15分間ロックされます。`);
+                    loginBtn.disabled = true;
+                    setTimeout(() => {
+                        loginBtn.disabled = false;
+                    }, SECURITY_CONFIG.LOCKOUT_DURATION);
+                } else {
+                    const remaining = SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS - securityState.loginAttempts;
+                    showError(`ユーザー名またはパスワードが正しくありません。(残り${remaining}回)`);
+                }
             }
         });
 
         // ログアウト処理
-        logoutBtn.addEventListener('click', () => {
+        function logout() {
             loginContainer.style.display = 'block';
             adminPanel.style.display = 'none';
-            adminStatus.style.display = 'none';
+            headerInfo.style.display = 'none';
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
-            errorMessage.style.display = 'none';
-        });
+            hideError();
+            
+            // セッション情報をクリア
+            securityState.sessionStartTime = null;
+            securityState.lastActivity = null;
+        }
+
+        logoutBtn.addEventListener('click', logout);
 
         // 変更ログ投稿処理
         changelogForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            if (isRateLimited()) {
+                showError('リクエスト制限に達しました。しばらく待ってから再試行してください。');
+                return;
+            }
+
+            if (checkSessionTimeout()) {
+                showError('セッションがタイムアウトしました。再度ログインしてください。');
+                logout();
+                return;
+            }
+            
             const project = document.getElementById('projectSelect').value;
-            const version = document.getElementById('versionInput').value;
-            const title = document.getElementById('titleInput').value;
-            const content = document.getElementById('contentTextarea').value;
-            const webhookUrl = document.getElementById('webhookUrl').value;
+            const version = document.getElementById('versionInput').value.trim();
+            const title = document.getElementById('titleInput').value.trim();
+            const content = document.getElementById('contentTextarea').value.trim();
+            const webhookUrl = document.getElementById('webhookUrl').value.trim();
+            
+            // 入力検証
+            if (!validateInput(project, 20) || !validateInput(version, 20) || 
+                !validateInput(title, 100) || !validateInput(content, 2000)) {
+                showError('無効な入力が検出されました。');
+                return;
+            }
+
+            // バージョン形式の検証
+            const versionPattern = /^v?[0-9]+\.[0-9]+\.[0-9]+.*$/;
+            if (!versionPattern.test(version)) {
+                showError('バージョン形式が正しくありません。(例: v1.2.3)');
+                return;
+            }
+
+            // Webhook URLの検証（提供されている場合）
+            if (webhookUrl && !webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
+                showError('無効なDiscord Webhook URLです。');
+                return;
+            }
             
             const changelog = {
                 id: Date.now(),
-                project: project,
-                version: version,
-                title: title,
-                content: content,
+                project: sanitizeInput(project),
+                version: sanitizeInput(version),
+                title: sanitizeInput(title),
+                content: sanitizeInput(content),
                 timestamp: new Date().toISOString(),
-                date: new Date().toLocaleDateString('ja-JP')
+                date: new Date().toLocaleDateString('ja-JP'),
+                author: 'admin', // 実際の実装では現在のユーザー情報を使用
+                ip: 'localhost' // 実際の実装ではクライアントIPを記録
             };
             
             // 変更ログを保存
@@ -614,7 +848,13 @@
             
             // Discord Webhook送信
             if (webhookUrl) {
-                await sendDiscordWebhook(webhookUrl, changelog);
+                try {
+                    await sendDiscordWebhook(webhookUrl, changelog);
+                } catch (error) {
+                    console.error('Webhook送信エラー:', error);
+                    showError('Discord通知の送信に失敗しました。');
+                    return;
+                }
             }
             
             // 成功メッセージ表示
@@ -626,51 +866,70 @@
             
             // フォームリセット
             changelogForm.reset();
+            updateActivity();
         });
 
-        // Discord Webhook送信
+        // Discord Webhook送信（セキュリティ強化版）
         async function sendDiscordWebhook(webhookUrl, changelog) {
-            try {
-                const embed = {
-                    title: `${changelog.project.toUpperCase()} ${changelog.version} - ${changelog.title}`,
-                    description: changelog.content,
-                    color: changelog.project === 'akane' ? 0xe91e63 : 0x9c27b0,
-                    timestamp: changelog.timestamp,
-                    footer: {
-                        text: `${changelog.project.toUpperCase()} Changelog`
+            // URLの再検証
+            if (!webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
+                throw new Error('無効なWebhook URL');
+            }
+
+            // ペイロード作成時にサニタイゼーション
+            const embed = {
+                title: `${changelog.project.toUpperCase()} ${changelog.version} - ${changelog.title}`,
+                description: changelog.content.substring(0, 4096), // Discord制限に合わせる
+                color: changelog.project === 'akane' ? 0xe91e63 : 0x9c27b0,
+                timestamp: changelog.timestamp,
+                footer: {
+                    text: `${changelog.project.toUpperCase()} Changelog`
+                },
+                fields: [
+                    {
+                        name: "バージョン",
+                        value: changelog.version,
+                        inline: true
                     },
-                    fields: [
-                        {
-                            name: "バージョン",
-                            value: changelog.version,
-                            inline: true
-                        },
-                        {
-                            name: "更新日",
-                            value: changelog.date,
-                            inline: true
-                        }
-                    ]
-                };
+                    {
+                        name: "更新日",
+                        value: changelog.date,
+                        inline: true
+                    }
+                ]
+            };
 
-                const payload = {
-                    content: `🚀 **${changelog.project.toUpperCase()}** の新しい更新があります！`,
-                    embeds: [embed]
-                };
+            const payload = {
+                content: `🚀 **${changelog.project.toUpperCase()}** の新しい更新があります！`,
+                embeds: [embed]
+            };
 
-                await fetch(webhookUrl, {
+            // タイムアウト設定付きでリクエスト
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
+
+            try {
+                const response = await fetch(webhookUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
                 });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
             } catch (error) {
-                console.error('Discord Webhook送信エラー:', error);
+                clearTimeout(timeoutId);
+                throw error;
             }
         }
 
-        // 変更ログ表示更新
+        // 変更ログ表示更新（XSS対策強化）
         function renderChangelogs() {
             changelogEntries.innerHTML = '';
             
@@ -678,56 +937,174 @@
                 const entryDiv = document.createElement('div');
                 entryDiv.className = 'changelog-entry';
                 
-                entryDiv.innerHTML = `
-                    <div class="entry-header">
-                        <div>
-                            <span class="entry-badge ${changelog.project}">${changelog.project.toUpperCase()}</span>
-                            <span class="entry-title">${changelog.version} - ${changelog.title}</span>
-                        </div>
-                        <div class="entry-meta">${changelog.date}</div>
-                    </div>
-                    <div class="entry-content">${changelog.content}</div>
-                `;
+                // テキストノードとして安全に挿入
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'entry-header';
                 
+                const headerLeft = document.createElement('div');
+                
+                const badge = document.createElement('span');
+                badge.className = `entry-badge ${changelog.project}`;
+                badge.textContent = changelog.project.toUpperCase();
+                
+                const title = document.createElement('span');
+                title.className = 'entry-title';
+                title.textContent = `${changelog.version} - ${changelog.title}`;
+                
+                headerLeft.appendChild(badge);
+                headerLeft.appendChild(document.createTextNode(' '));
+                headerLeft.appendChild(title);
+                
+                const headerRight = document.createElement('div');
+                headerRight.className = 'entry-meta';
+                headerRight.textContent = changelog.date;
+                
+                headerDiv.appendChild(headerLeft);
+                headerDiv.appendChild(headerRight);
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'entry-content';
+                contentDiv.textContent = changelog.content;
+                
+                entryDiv.appendChild(headerDiv);
+                entryDiv.appendChild(contentDiv);
                 changelogEntries.appendChild(entryDiv);
             });
         }
 
         // アナリティクス表示更新
         function updateAnalyticsDisplay() {
-            document.getElementById('todayVisitors').textContent = analytics.todayVisitors;
-            document.getElementById('monthlyVisitors').textContent = analytics.monthlyVisitors;
-            document.getElementById('totalVisitors').textContent = analytics.totalVisitors;
-            document.getElementById('pageViews').textContent = analytics.pageViews;
-            document.getElementById('akaneUpdates').textContent = analytics.akaneUpdates;
-            document.getElementById('koharuUpdates').textContent = analytics.koharuUpdates;
-            document.getElementById('monthlyUpdates').textContent = analytics.monthlyUpdates;
+            // 数値データの検証とサニタイゼーション
+            const safeValue = (value) => {
+                const num = parseInt(value) || 0;
+                return Math.max(0, Math.min(999999, num)); // 範囲制限
+            };
+            
+            document.getElementById('todayVisitors').textContent = safeValue(analytics.todayVisitors);
+            document.getElementById('monthlyVisitors').textContent = safeValue(analytics.monthlyVisitors);
+            document.getElementById('totalVisitors').textContent = safeValue(analytics.totalVisitors);
+            document.getElementById('pageViews').textContent = safeValue(analytics.pageViews);
+            document.getElementById('akaneUpdates').textContent = safeValue(analytics.akaneUpdates);
+            document.getElementById('koharuUpdates').textContent = safeValue(analytics.koharuUpdates);
+            document.getElementById('monthlyUpdates').textContent = safeValue(analytics.monthlyUpdates);
             document.getElementById('lastUpdate').textContent = analytics.lastUpdate || '-';
             document.getElementById('lastBackup').textContent = analytics.lastBackup || '未実行';
-            document.getElementById('activeSessions').textContent = analytics.activeSessions;
+            document.getElementById('activeSessions').textContent = safeValue(analytics.activeSessions);
         }
 
-        // データ保存（実際の実装では外部データベースを使用）
+        // データ保存（実際の実装では暗号化してサーバーに送信）
         function saveChangelogs() {
-            // 実際の実装では、サーバーサイドAPIを呼び出してデータベースに保存
-            console.log('変更ログを保存:', changelogs);
+            // 実際の実装では、CSRF トークンと共にサーバーサイドAPIを呼び出し
+            // データベースに暗号化して保存
+            console.log('変更ログを安全に保存:', {
+                count: changelogs.length,
+                timestamp: new Date().toISOString(),
+                sessionId: securityState.sessionStartTime
+            });
         }
 
         function loadChangelogs() {
-            // 実際の実装では、サーバーサイドAPIから変更ログを読み込み
+            // 実際の実装では、認証されたAPIから暗号化されたデータを取得
+            // XSS攻撃を防ぐため、サーバーサイドでサニタイゼーション済みのデータを使用
             renderChangelogs();
         }
 
         function loadAnalytics() {
-            // 実際の実装では、サーバーサイドAPIからアナリティクスデータを読み込み
+            // 実際の実装では、認証されたAPIからアナリティクスデータを取得
             analytics.lastBackup = new Date(Date.now() - 86400000).toLocaleDateString('ja-JP');
         }
 
-        // 定期的なアナリティクス更新（実際の実装では必要に応じて）
+        // セキュリティログ記録（実際の実装用）
+        function logSecurityEvent(event, details = {}) {
+            const logEntry = {
+                timestamp: new Date().toISOString(),
+                event: event,
+                sessionId: securityState.sessionStartTime,
+                userAgent: navigator.userAgent,
+                details: details
+            };
+            
+            // 実際の実装では、サーバーサイドのセキュリティログに記録
+            console.log('Security Event:', logEntry);
+        }
+
+        // ページ離脱時の処理
+        window.addEventListener('beforeunload', () => {
+            if (securityState.sessionStartTime) {
+                logSecurityEvent('session_end', {
+                    duration: Date.now() - securityState.sessionStartTime
+                });
+            }
+        });
+
+        // 開発者ツール検出（基本的な対策）
+        let devtools = {
+            open: false,
+            orientation: null
+        };
+        
         setInterval(() => {
-            analytics.pageViews++;
-            updateAnalyticsDisplay();
+            if (window.outerHeight - window.innerHeight > 200 || 
+                window.outerWidth - window.innerWidth > 200) {
+                if (!devtools.open) {
+                    devtools.open = true;
+                    logSecurityEvent('devtools_opened');
+                }
+            } else {
+                devtools.open = false;
+            }
+        }, 500);
+
+        // 右クリック無効化（基本的な対策）
+        document.addEventListener('contextmenu', (e) => {
+            if (securityState.sessionStartTime) {
+                e.preventDefault();
+                logSecurityEvent('context_menu_blocked');
+            }
+        });
+
+        // キーボードショートカット無効化
+        document.addEventListener('keydown', (e) => {
+            if (securityState.sessionStartTime) {
+                // F12, Ctrl+Shift+I, Ctrl+U など
+                if (e.key === 'F12' || 
+                    (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+                    (e.ctrlKey && e.key === 'u')) {
+                    e.preventDefault();
+                    logSecurityEvent('devtools_shortcut_blocked', { key: e.key });
+                }
+            }
+        });
+
+        // 定期的なアナリティクス更新（セキュリティ考慮）
+        setInterval(() => {
+            if (securityState.sessionStartTime && !checkSessionTimeout()) {
+                analytics.pageViews = Math.min(analytics.pageViews + 1, 999999);
+                updateAnalyticsDisplay();
+                updateActivity();
+            }
         }, 30000); // 30秒ごと
+
+        // セキュリティヘルスチェック
+        setInterval(() => {
+            // 異常なアクティビティの検知
+            if (securityState.requestCount > SECURITY_CONFIG.RATE_LIMIT_REQUESTS * 2) {
+                logSecurityEvent('suspicious_activity', {
+                    requestCount: securityState.requestCount
+                });
+            }
+            
+            // セッション健全性チェック
+            if (securityState.sessionStartTime) {
+                const sessionDuration = Date.now() - securityState.sessionStartTime;
+                if (sessionDuration > SECURITY_CONFIG.SESSION_TIMEOUT * 2) {
+                    logSecurityEvent('session_anomaly', {
+                        duration: sessionDuration
+                    });
+                    logout();
+                }
+            }
+        }, 60000); // 1分ごと
     </script>
 </body>
 </html>
